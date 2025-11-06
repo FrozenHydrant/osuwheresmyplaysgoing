@@ -42,23 +42,25 @@ class DataHandle:
         self.DB_NAME = "osuplaycount"
         self.DB_USERNAME = os.getenv("DB_USERNAME")
         self.DB_HOST = os.getenv("DB_HOST")
+        self.DB_PORT = os.getenv("DB_PORT")
         self.DB_PASSWORD = os.getenv("DB_PASSWORD")
-        self.DB_CNX = mysql.connector.connect(host=self.DB_HOST, user=self.DB_USERNAME, password=self.DB_PASSWORD)
+        self.DB_CNX = mysql.connector.connect(host=self.DB_HOST, user=self.DB_USERNAME, database=self.DB_NAME, port=self.DB_PORT, password=self.DB_PASSWORD)
         self.DB_CURSE = self.DB_CNX.cursor()
         self.active = False
 
         # Load the database
-        self._load_db()
+        #self._load_db()
         self._load_tables()
 
-    def _load_db(self):
-        try:
-            self.DB_CURSE.execute("USE {}".format(self.DB_NAME))
-            print("Used existing database.")
-        except mysql.connector.Error as err:
-            self.DB_CURSE.execute("CREATE DATABASE {} DEFAULT CHARACTER SET 'utf8'".format(self.DB_NAME)) # error handling?
-            self.DB_CNX.database = self.DB_NAME
-            print("Database created.")
+    # We don't need to try create the database, let's just assume it exists
+    #def _load_db(self):
+    #    try:
+    #        self.DB_CURSE.execute("USE {}".format(self.DB_NAME))
+    #        print("Used existing database.")
+    #    except mysql.connector.Error as err:
+    #        self.DB_CURSE.execute("CREATE DATABASE {} DEFAULT CHARACTER SET 'utf8'".format(self.DB_NAME)) # error handling?
+    #        self.DB_CNX.database = self.DB_NAME
+    #        print("Database created.")
 
     def _load_tables(self):
         try:
@@ -259,7 +261,6 @@ def main():
 
 @app.route('/')
 def landing_page():
-    return "TestOne"
     top_rows = my_handle.get_top_rows(100)
     return render_template(("index.html"), maps=top_rows)
     
