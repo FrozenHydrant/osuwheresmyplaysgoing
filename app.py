@@ -40,9 +40,10 @@ class DataHandle:
         self.C_ID = os.getenv("CLIENT_ID")
         self.CLIENT = osu.Client.from_credentials(self.C_ID, self.C_SECRET, "")
         self.DB_NAME = "osuplaycount"
-        self.DB_USERNAME = "root"
+        self.DB_USERNAME = os.getenv("DB_USERNAME")
+        self.DB_HOST = os.getenv("DB_HOST")
         self.DB_PASSWORD = os.getenv("DB_PASSWORD")
-        self.DB_CNX = mysql.connector.connect(user=self.DB_USERNAME, password=self.DB_PASSWORD)
+        self.DB_CNX = mysql.connector.connect(host=self.DB_HOST, user=self.DB_USERNAME, password=self.DB_PASSWORD)
         self.DB_CURSE = self.DB_CNX.cursor()
         self.active = False
 
