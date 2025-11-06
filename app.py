@@ -249,15 +249,10 @@ class DataHandle:
 app = Flask(__name__)
 my_handle = DataHandle()
 
-def main():
-    print("Starting up now")
-    my_handle.start()
-    print("Not blocked.")
-
-    # We Ctrl-C to stop the app from running so we forcefully (gracefully?) exit and the thread shall exit too
-    print("App is done.")
-    #my_handle.active = False
-    
+# Actually start up
+print("Starting up now")
+my_handle.start()
+print("Not blocked.")    
 
 @app.route('/')
 def landing_page():
@@ -265,4 +260,3 @@ def landing_page():
     return render_template(("index.html"), maps=top_rows)
 
     
-main()
