@@ -248,7 +248,7 @@ app = Flask(__name__)
 my_handle = DataHandle()
 
 def main():
-    my_handle.start()
+    #my_handle.start()
     print("Not blocked.")
     app.run()
 
@@ -259,6 +259,7 @@ def main():
 
 @app.route('/')
 def landing_page():
+    return "TestOne"
     top_rows = my_handle.get_top_rows(100)
     return render_template(("index.html"), maps=top_rows)
     
