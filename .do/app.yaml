@@ -1,0 +1,6 @@
+name: osuwheresmyplaysgoing
+services:
+- name: web
+  github:
+    repo: FrozenHydrant/osuwheresmyplaysgoing
+    branch: main
