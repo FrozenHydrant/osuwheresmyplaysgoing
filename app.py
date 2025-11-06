@@ -163,7 +163,8 @@ class DataHandle:
 
             #Check if the map id and date are already in the table
             check_score = ("SELECT * FROM osumaintable "
-                           "WHERE map_id = %s AND day = %s AND h = %s")
+                           "WHERE map_id = %s AND day = %s AND h = %s"
+                           "LIMIT 1")
             self.DB_CURSE.execute(check_score, (details["map_id"], details["time_end"], details["h"]))
             existing_score = self.DB_CURSE.fetchone()
 
