@@ -8,7 +8,7 @@
 	<div class=awesome_box>
 		{% for map in maps %}
 		<div class=map_contain>
-			<div class=map_name>{{ map[2] }}</div>
+			<div class=map_name><a href="https://osu.ppy.sh/beatmapsets/{{map[1]}}">{{ map[2] }}</a></div>
 			<div class=map_plays>{{ map[0] }}</div><div class=passes> passes</div>
 		</div>
 		{% endfor %}
