@@ -215,8 +215,9 @@ class DataHandle:
         self.DB_CNX.commit()
 
     def get_top_rows(self, limit):
-        # New cursor which goes parallel with the old one and hopefully does not mess everything up
-        my_getting_curse = self.DB_CNX.cursor()
+        # New connection which goes parallel with the old one and hopefully does not mess everything up
+        my_getting_connection = mysql.connector.connect(host=self.DB_HOST, port=self.DB_PORT, username=self.DB_USERNAME, password=self.DB_PASSWORD, database=self.DB_NAME)
+        my_getting_curse = my_getting_connection.cursor()
         try:
             grouped_by_mapset = ("CREATE VIEW groupedbymapset AS "
                                  "SELECT SUM(playcount) AS playcount, mapset_id FROM osumaintable "
@@ -232,7 +233,9 @@ class DataHandle:
                     "LIMIT %s")
         my_getting_curse.execute(top_maps, [limit])
         my_maps = my_getting_curse.fetchall()
+        
         my_getting_curse.close()
+        my_getting_connection.close()
         return my_maps
  
     def start(self):
