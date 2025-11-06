@@ -263,7 +263,6 @@ def main():
 def landing_page():
     top_rows = my_handle.get_top_rows(100)
     return render_template(("index.html"), maps=top_rows)
-    
 
-if __name__ == "__main__":
-    main()
+    
+main()
