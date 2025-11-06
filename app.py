@@ -264,5 +264,5 @@ def landing_page():
     return render_template(("index.html"), maps=top_rows)
     
 
-if __name__ == "__main__":
-    main()
+#if __name__ == "__main__":
+#    main()
