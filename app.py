@@ -215,11 +215,13 @@ class DataHandle:
         self.DB_CNX.commit()
 
     def get_top_rows(self, limit):
+        # New cursor which goes parallel with the old one and hopefully does not mess everything up
+        my_getting_curse = self.DB_CNX.cursor()
         try:
             grouped_by_mapset = ("CREATE VIEW groupedbymapset AS "
                                  "SELECT SUM(playcount) AS playcount, mapset_id FROM osumaintable "
                                  "GROUP BY mapset_id")
-            self.DB_CURSE.execute(grouped_by_mapset)
+            my_getting_curse.execute(grouped_by_mapset)
             print("View of grouped by mapset created.")
         except:
             pass
@@ -228,8 +230,9 @@ class DataHandle:
                     "INNER JOIN osumaptable ON groupedbymapset.mapset_id=osumaptable.mapset_id "
                     "ORDER BY groupedbymapset.playcount DESC "
                     "LIMIT %s")
-        self.DB_CURSE.execute(top_maps, [limit])
-        my_maps = self.DB_CURSE.fetchall()
+        my_getting_curse.execute(top_maps, [limit])
+        my_maps = my_getting_curse.fetchall()
+        my_getting_curse.close()
         return my_maps
  
     def start(self):
