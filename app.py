@@ -8,7 +8,7 @@ from mysql.connector import errorcode
 from datetime import datetime, timedelta, timezone
 import time
 import threading
-from flask import Flask
+from flask import Flask, render_template
 
 dotenv.load_dotenv()
 class DataHandle:
@@ -44,6 +44,7 @@ class DataHandle:
         self.DB_PASSWORD = os.getenv("DB_PASSWORD")
         self.DB_CNX = mysql.connector.connect(user=self.DB_USERNAME, password=self.DB_PASSWORD)
         self.DB_CURSE = self.DB_CNX.cursor()
+        self.active = False
 
         # Load the database
         self._load_db()
@@ -93,7 +94,7 @@ class DataHandle:
         self.DB_CURSE.execute(check_info, [limit])
 
         my_results = self.DB_CURSE.fetchmany(limit)
-        while len(my_results) > 0:
+        while len(my_results) > 0 and self.active: # If we terminate the program we should exit this
             map_id = my_results.pop()[0]
             map_info = self.CLIENT.get_beatmap(map_id)
 
@@ -229,14 +230,17 @@ class DataHandle:
         return my_maps
  
     def start(self):
-        my_thread = threading.Thread(target=self._mainloop)
-        my_thread.start()
+        self.active = True
+        self.my_thread = threading.Thread(target=self._mainloop)
+        self.my_thread.start()
 
     def _mainloop(self):
-        while True:
+        while self.active:
             self._process_recent_scores()
             self._get_beatmap_info(60)
             time.sleep(1)
+        self.DB_CURSE.close()
+        self.DB_CNX.close()
 
 # Some setup shenanigans
 app = Flask(__name__)
@@ -246,11 +250,16 @@ def main():
     my_handle.start()
     print("Not blocked.")
     app.run()
+
+    # We Ctrl-C to stop the app from running so we forcefully (gracefully?) exit and the thread shall exit too
+    print("App is done.")
+    my_handle.active = False
     
 
 @app.route('/')
 def landing_page():
-    return my_handle.get_top_rows(100)
+    top_rows = my_handle.get_top_rows(100)
+    return render_template(("index.html"), maps=top_rows)
     
 
 if __name__ == "__main__":

@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<link rel="stylesheet" href="/static/style.css">
+	</head>
+	<body>
+	<div class=titleism>Beatmaps with most passes in last 7 days osu</div>
+	<div class=awesome_box>
+		{% for map in maps %}
+		<div class=map_contain>
+			<div class=map_name>{{ map[2] }}</div>
+			<div class=map_plays>{{ map[0] }}</div><div class=passes> passes</div>
+		</div>
+		{% endfor %}
+	</div>
+	</body>
+</html>
