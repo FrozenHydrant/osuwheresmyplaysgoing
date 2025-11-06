@@ -120,8 +120,8 @@ class DataHandle:
                 update_map_table = ("INSERT INTO osumaptable "
                                    "(mapset_id, name, expiry) "
                                    "VALUES (%s, %s, %s)")
-                # Set an expiry date to be 24 hours from now
-                data_map_table = (map_info.beatmapset_id, map_info.beatmapset.title[:64], datetime.now(timezone.utc).date() + timedelta(days=8))
+                # Set an expiry date to be 2 days from now
+                data_map_table = (map_info.beatmapset_id, map_info.beatmapset.title[:64], datetime.now(timezone.utc).date() + timedelta(days=2))
                 self.DB_CURSE.execute(update_map_table, data_map_table)
                 self.DB_CNX.commit()
                 print("Added new map", data_map_table, "now looking for trouble.")
@@ -130,7 +130,7 @@ class DataHandle:
                 update_map_table = ("UPDATE osumaptable "
                                     "SET expiry = %s "
                                     "WHERE mapset_id = %s")
-                data_map_table = (datetime.now(timezone.utc).date() + timedelta(days=8), map_info.beatmapset_id)
+                data_map_table = (datetime.now(timezone.utc).date() + timedelta(days=2), map_info.beatmapset_id)
                 self.DB_CURSE.execute(update_map_table, data_map_table)
                 self.DB_CNX.commit()
                 print("Updated expiry of existing map", map_info.beatmapset.title[:64])
@@ -163,7 +163,7 @@ class DataHandle:
 
             #Check if the map id and date are already in the table
             check_score = ("SELECT * FROM osumaintable "
-                           "WHERE map_id = %s AND day = %s AND h = %s"
+                           "WHERE map_id = %s AND day = %s AND h = %s "
                            "LIMIT 1")
             self.DB_CURSE.execute(check_score, (details["map_id"], details["time_end"], details["h"]))
             existing_score = self.DB_CURSE.fetchone()
@@ -201,7 +201,6 @@ class DataHandle:
         # Purge old scores
         old_date = last_score.ended_at.date() - timedelta(days=7)
         old_h = last_score.ended_at.hour
-        #print(old_date, old_h)
         old_purge = ("DELETE FROM osumaintable "
                      "WHERE day <= %s AND h <= %s")
         data_purge = (old_date, old_h)
