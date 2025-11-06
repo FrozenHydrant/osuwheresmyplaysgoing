@@ -245,16 +245,16 @@ class DataHandle:
 
 # Some setup shenanigans
 app = Flask(__name__)
-my_handle = DataHandle()
+#my_handle = DataHandle()
 
 def main():
     #my_handle.start()
     print("Not blocked.")
-    app.run()
+    #app.run()
 
     # We Ctrl-C to stop the app from running so we forcefully (gracefully?) exit and the thread shall exit too
     print("App is done.")
-    my_handle.active = False
+    #my_handle.active = False
     
 
 @app.route('/')
