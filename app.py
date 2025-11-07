@@ -123,7 +123,7 @@ class DataHandle:
                 data_map_table = (datetime.now(timezone.utc).date() + timedelta(days=2), map_info.beatmapset_id)
                 self.DB_CURSE.execute(update_map_table, data_map_table)
                 self.DB_CNX.commit()
-                print("Updated expiry of existing map", map_info.beatmapset.title[:64])
+                print("Updated expiry of existing map", map_info.beatmapset.title[:64], data_map_table)
             
             time.sleep(1)
 
@@ -205,9 +205,9 @@ class DataHandle:
         self.DB_CNX.commit()
 
         # Debug print the size of our mapset table?
-        debug_size = ("SELECT COUNT(*) FROM osumaptable ")
-        self.DB_CURSE.execute(debug_size)
-        print(self.DB_CURSE.fetchall())
+        # debug_size = ("SELECT COUNT(*) FROM osumaptable ")
+        # self.DB_CURSE.execute(debug_size)
+        # print(self.DB_CURSE.fetchall())
               
     def get_top_rows(self, limit):
         # New connection which goes parallel with the old one and hopefully does not mess everything up
@@ -257,7 +257,6 @@ my_handle = DataHandle()
 # Actually start up
 print("Starting up now")
 my_handle.start()
-print("Not blocked.")    
 
 @app.route('/')
 def landing_page():
