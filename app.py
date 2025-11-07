@@ -214,7 +214,7 @@ class DataHandle:
         my_getting_connection = mysql.connector.connect(host=self.DB_HOST, port=self.DB_PORT, username=self.DB_USERNAME, password=self.DB_PASSWORD, database=self.DB_NAME)
         my_getting_curse = my_getting_connection.cursor()
         try:
-            grouped_by_mapset = ("CREATE OR UPDATE VIEW groupedandlimitedbymapset AS "
+            grouped_by_mapset = ("CREATE OR REPLACE VIEW groupedandlimitedbymapset AS "
                                  "SELECT SUM(playcount) AS playcount, mapset_id FROM osumaintable "
                                  "WHERE mapset_id IS NOT NULL "
                                  "GROUP BY mapset_id "
