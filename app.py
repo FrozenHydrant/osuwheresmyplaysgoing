@@ -52,16 +52,6 @@ class DataHandle:
         #self._load_db()
         self._load_tables()
 
-    # We don't need to try create the database, let's just assume it exists
-    #def _load_db(self):
-    #    try:
-    #        self.DB_CURSE.execute("USE {}".format(self.DB_NAME))
-    #        print("Used existing database.")
-    #    except mysql.connector.Error as err:
-    #        self.DB_CURSE.execute("CREATE DATABASE {} DEFAULT CHARACTER SET 'utf8'".format(self.DB_NAME)) # error handling?
-    #        self.DB_CNX.database = self.DB_NAME
-    #        print("Database created.")
-
     def _load_tables(self):
         try:
             self.DB_CURSE.execute(DataHandle.META_TABLE_BLUEPRINT.format("osumetatable"))
@@ -221,8 +211,10 @@ class DataHandle:
         try:
             grouped_by_mapset = ("CREATE VIEW groupedbymapset AS "
                                  "SELECT SUM(playcount) AS playcount, mapset_id FROM osumaintable "
-                                 "GROUP BY mapset_id")
-            my_getting_curse.execute(grouped_by_mapset)
+                                 "GROUP BY mapset_id "
+                                 "ORDER BY playcount DESC "
+                                 "LIMIT %s")
+            my_getting_curse.execute(grouped_by_mapset, [limit])
             print("View of grouped by mapset created.")
         except:
             pass
