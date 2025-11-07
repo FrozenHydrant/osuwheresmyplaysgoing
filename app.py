@@ -209,7 +209,7 @@ class DataHandle:
         my_getting_connection = mysql.connector.connect(host=self.DB_HOST, port=self.DB_PORT, username=self.DB_USERNAME, password=self.DB_PASSWORD, database=self.DB_NAME)
         my_getting_curse = my_getting_connection.cursor()
         try:
-            grouped_by_mapset = ("CREATE VIEW groupedbymapset AS "
+            grouped_by_mapset = ("CREATE VIEW groupedandlimitedbymapset AS "
                                  "SELECT SUM(playcount) AS playcount, mapset_id FROM osumaintable "
                                  "GROUP BY mapset_id "
                                  "ORDER BY playcount DESC "
@@ -219,9 +219,9 @@ class DataHandle:
         except:
             pass
 
-        top_maps = ("SELECT groupedbymapset.playcount,osumaptable.mapset_id,osumaptable.name FROM groupedbymapset "
-                    "INNER JOIN osumaptable ON groupedbymapset.mapset_id=osumaptable.mapset_id "
-                    "ORDER BY groupedbymapset.playcount DESC "
+        top_maps = ("SELECT groupedandlimitedbymapset.playcount,osumaptable.mapset_id,osumaptable.name FROM groupedandlimitedbymapset "
+                    "INNER JOIN osumaptable ON groupedandlimitedbymapset.mapset_id=osumaptable.mapset_id "
+                    "ORDER BY groupedandlimitedbymapset.playcount DESC "
                     "LIMIT %s")
         my_getting_curse.execute(top_maps, [limit])
         my_maps = my_getting_curse.fetchall()
