@@ -213,7 +213,7 @@ class DataHandle:
                     # then our beatmap info getter will eventually put the corresponding map info back into the osumaptable
                     if map_table_result is not None:
                         mapset_id = mapset_id_result[0]
-                        print("Awesome and valid result was used for mapset_id:", mapset_id, details["map_id"])
+                        #print("Awesome and valid result was used for mapset_id:", mapset_id, details["map_id"])
 
 
                 # Then add the score to the table using the (maybe we have) mapset_id
@@ -288,13 +288,13 @@ class DataHandle:
     def _mainloop(self):
         while self.active:
             self._process_recent_scores()
-            seconds_used = self._get_beatmap_info(60)
+            seconds_used = self._get_beatmap_info(30)
 
             # Usually, seconds_used is 60 since each info takes one second to process and we process 60
             # That's a good amount of time in between each process_recent_scores()
             # But if we did less, we should try and wait the full duration
             print("Processing some scores which used (seconds): ", seconds_used)
-            time.sleep(max(60 - seconds_used, 2))
+            time.sleep(max(30 - seconds_used, 2))
         self.DB_CURSE.close()
         self.DB_CNX.close()
 
