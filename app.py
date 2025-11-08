@@ -78,6 +78,50 @@ class DataHandle:
         except:
             print("Map table exists")
 
+    def _update_maptable_expiry(self, mapset_id):
+        # Does exist: extend the expiry
+        update_map_table = ("UPDATE osumaptable "
+                            "SET expiry = %s "
+                            "WHERE mapset_id = %s")
+        data_map_table = (datetime.now(timezone.utc).date() + timedelta(days=2), mapset_id)
+        self.DB_CURSE.execute(update_map_table, data_map_table)
+        self.DB_CNX.commit()
+        #print("Updated map expiry", data_map_table)
+
+    def _add_to_maptable(self, mapset_id, map_name):
+        update_map_table = ("INSERT INTO osumaptable "
+                            "(mapset_id, name, expiry) "
+                            "VALUES (%s, %s, %s)")
+        # Set an expiry date to be 2 days from now
+        data_map_table = (mapset_id, map_name[:64], datetime.now(timezone.utc).date() + timedelta(days=2))
+        self.DB_CURSE.execute(update_map_table, data_map_table)
+        self.DB_CNX.commit()
+        print("Added new entry to maptable", data_map_table)
+
+    def _update_maptable(self, map_info):
+        # We should check if the entry already exists
+        mapset_id = map_info.beatmapset_id
+        check_map_table = ("SELECT * FROM osumaptable "
+                           "WHERE mapset_id = %s "
+                           "LIMIT 1")
+        self.DB_CURSE.execute(check_map_table, [mapset_id])
+        map_table_result = self.DB_CURSE.fetchone()
+            
+        # Doesn't exist = add it
+        if map_table_result is None:
+            self._add_to_maptable(mapset_id, map_info.beatmapset.title)
+        else:
+            # Does exist = update its expiry
+            self._update_maptable_expiry(mapset_id)
+
+    def _update_maintable_mapset(self, mapset_id, map_id):
+        update_map = ("UPDATE osumaintable "
+                      "SET mapset_id = %s "
+                      "WHERE map_id = %s")
+        data_map = (mapset_id, map_id)
+        self.DB_CURSE.execute(update_map, data_map)
+        self.DB_CNX.commit()
+
     def _get_beatmap_info(self, limit):
         # Check the beatmaps which don't have info associated
         check_info = ("SELECT map_id FROM osumaintable "
@@ -87,45 +131,25 @@ class DataHandle:
         self.DB_CURSE.execute(check_info, [limit])
 
         my_results = self.DB_CURSE.fetchmany(limit)
+        processed_maps = len(my_results)
         while len(my_results) > 0 and self.active: # If we terminate the program we should exit this
             map_id = my_results.pop()[0]
-            map_info = self.CLIENT.get_beatmap(map_id)
+            map_info = None
+            try:
+                map_info = self.CLIENT.get_beatmap(map_id)
+            except Exception as e:
+                print("We can't get the map info for this map", e, "skipping.")
+                time.sleep(2)
+                continue
 
-            update_map = ("UPDATE osumaintable "
-                          "SET mapset_id = %s "
-                          "WHERE map_id = %s")
-            data_map = (map_info.beatmapset_id, map_id)
-            self.DB_CURSE.execute(update_map, data_map)
-            self.DB_CNX.commit()
+            # Update the entry in the main table
+            self._update_maintable_mapset(map_info.beatmapset_id, map_id)
 
-            # Update the maptable by adding the data
-            # We should check if the entry already exists
-            check_map_table = ("SELECT * FROM osumaptable "
-                               "WHERE mapset_id = %s "
-                               "LIMIT 1")
-            self.DB_CURSE.execute(check_map_table, [map_info.beatmapset_id])
-            map_table_result = self.DB_CURSE.fetchone()
-            # Doesn't exist = add it
-            if map_table_result is None:
-                update_map_table = ("INSERT INTO osumaptable "
-                                   "(mapset_id, name, expiry) "
-                                   "VALUES (%s, %s, %s)")
-                # Set an expiry date to be 2 days from now
-                data_map_table = (map_info.beatmapset_id, map_info.beatmapset.title[:64], datetime.now(timezone.utc).date() + timedelta(days=2))
-                self.DB_CURSE.execute(update_map_table, data_map_table)
-                self.DB_CNX.commit()
-                print("Added new map", data_map_table, "now looking for trouble.")
-            else:
-                # Does exist: extend the expiry
-                update_map_table = ("UPDATE osumaptable "
-                                    "SET expiry = %s "
-                                    "WHERE mapset_id = %s")
-                data_map_table = (datetime.now(timezone.utc).date() + timedelta(days=2), map_info.beatmapset_id)
-                self.DB_CURSE.execute(update_map_table, data_map_table)
-                self.DB_CNX.commit()
-                print("Updated expiry of existing map", map_info.beatmapset.title[:64], data_map_table)
-            
+            # Update the maptable by adding the mapset data
+            self._update_maptable(map_info)
+                
             time.sleep(1)
+        return processed_maps
 
     
     def _process_recent_scores(self, myc=None):
@@ -169,10 +193,34 @@ class DataHandle:
                 self.DB_CURSE.execute(update_score, data_update)
             # Add the score into the table
             else:
+                # But we might already know what map it is
+                get_mapset_id = ("SELECT mapset_id FROM osumaintable "
+                                 "WHERE map_id = %s AND mapset_id IS NOT NULL "
+                                 "LIMIT 1")
+                self.DB_CURSE.execute(get_mapset_id, [details["map_id"]])
+                mapset_id_result = self.DB_CURSE.fetchone()
+                mapset_id = None
+                if mapset_id_result is not None:
+                    # Then we know the mapset_id must be the one we found before
+                    # As long as it was not deleted at some point...
+                    check_map_table = ("SELECT * FROM osumaptable "
+                                       "WHERE mapset_id = %s "
+                                       "LIMIT 1")
+                    self.DB_CURSE.execute(check_map_table, [mapset_id_result[0]])
+                    map_table_result = self.DB_CURSE.fetchone()
+                    
+                    # Wasn't deleted at some point (the corresponding map info) -> update mapset id. If it was deleted, then we need to leave the mapset_id field as NULL
+                    # then our beatmap info getter will eventually put the corresponding map info back into the osumaptable
+                    if map_table_result is not None:
+                        mapset_id = mapset_id_result[0]
+                        print("Awesome and valid result was used for mapset_id:", mapset_id, details["map_id"])
+
+
+                # Then add the score to the table using the (maybe we have) mapset_id
                 add_score = ("INSERT INTO osumaintable "
                              "(map_id, playcount, day, mapset_id, h) "
                              "VALUES (%s, %s, %s, %s, %s)")
-                data_score = (details["map_id"], 1, details["time_end"], None, details["h"])
+                data_score = (details["map_id"], 1, details["time_end"], mapset_id, details["h"])
                 self.DB_CURSE.execute(add_score, data_score)
             self.DB_CNX.commit()
 
@@ -203,11 +251,6 @@ class DataHandle:
         oldmap_data = [datetime.now(timezone.utc).date()]
         self.DB_CURSE.execute(oldmap_purge, oldmap_data)
         self.DB_CNX.commit()
-
-        # Debug print the size of our mapset table?
-        # debug_size = ("SELECT COUNT(*) FROM osumaptable ")
-        # self.DB_CURSE.execute(debug_size)
-        # print(self.DB_CURSE.fetchall())
               
     def get_top_rows(self, limit):
         # New connection which goes parallel with the old one and hopefully does not mess everything up
@@ -245,8 +288,13 @@ class DataHandle:
     def _mainloop(self):
         while self.active:
             self._process_recent_scores()
-            self._get_beatmap_info(60)
-            time.sleep(1)
+            seconds_used = self._get_beatmap_info(60)
+
+            # Usually, seconds_used is 60 since each info takes one second to process and we process 60
+            # That's a good amount of time in between each process_recent_scores()
+            # But if we did less, we should try and wait the full duration
+            print("Processing some scores which used (seconds): ", seconds_used)
+            time.sleep(max(60 - seconds_used, 2))
         self.DB_CURSE.close()
         self.DB_CNX.close()
 
@@ -254,13 +302,14 @@ class DataHandle:
 app = Flask(__name__)
 my_handle = DataHandle()
 
-# Actually start up
-print("Starting up now")
-my_handle.start()
-
 @app.route('/')
 def landing_page():
     top_rows = my_handle.get_top_rows(100)
     return render_template(("index.html"), maps=top_rows)
+
+# Actually start up
+print("Starting up now")
+my_handle.start()
+
 
     
