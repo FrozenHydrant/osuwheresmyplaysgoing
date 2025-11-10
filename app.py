@@ -11,6 +11,7 @@ import threading
 from flask import Flask, render_template
 
 dotenv.load_dotenv()
+
 class DataHandle:
     MAIN_TABLE_BLUEPRINT = (
         "CREATE TABLE `{}` ("
@@ -46,6 +47,7 @@ class DataHandle:
         self.DB_PASSWORD = os.getenv("DB_PASSWORD")
         self.DB_CNX = mysql.connector.connect(host=self.DB_HOST, user=self.DB_USERNAME, database=self.DB_NAME, port=self.DB_PORT, password=self.DB_PASSWORD)
         self.DB_CURSE = self.DB_CNX.cursor()
+        self.cached_rows = []
         self.active = False
 
         # Load the database
@@ -159,8 +161,15 @@ class DataHandle:
         self.DB_CURSE.execute(check_curse, ["OsuMetaData"])
         (_, myc) = self.DB_CURSE.fetchone()
         print("Now fetching scores...")
-        
-        new_out, cursor_out = self.CLIENT.get_all_scores(osu.enums.GameModeStr.STANDARD, myc)
+
+        new_out = None
+        cursor_out = None
+        try:
+            new_out, cursor_out = self.CLIENT.get_all_scores(osu.enums.GameModeStr.STANDARD, myc)
+        except Exception as e:
+            print("Could not get the scores. Trying to fall back?", e)
+            new_out, cursor_out = self.CLIENT.get_all_scores(osu.enums.GameModeStr.STANDARD)
+            
 
         # Print the first score processed:
         the_first_score = new_out[1][0]
@@ -279,11 +288,19 @@ class DataHandle:
         my_getting_curse.close()
         my_getting_connection.close()
         return my_maps
+
+    def _update_cache(self):
+        self.cached_rows = self.get_top_rows(100)
+
+    def get_cached_rows(self):
+        return self.cached_rows
  
     def start(self):
         self.active = True
-        self.my_thread = threading.Thread(target=self._mainloop)
-        self.my_thread.start()
+        self.main_thread = threading.Thread(target=self._mainloop)
+        self.main_thread.start()
+        self.cache_thread = threading.Thread(target=self._cacheloop)
+        self.cache_thread.start()
 
     def _mainloop(self):
         while self.active:
@@ -298,18 +315,28 @@ class DataHandle:
         self.DB_CURSE.close()
         self.DB_CNX.close()
 
+
+    def _cacheloop(self):
+        while self.active:
+            print("Updating cache...")
+            self._update_cache()
+            c = 1800
+            while self.active and c > 0:
+                time.sleep(1)
+                c -= 1
+
+
 # Some setup shenanigans
 app = Flask(__name__)
 my_handle = DataHandle()
 
 @app.route('/')
 def landing_page():
-    top_rows = my_handle.get_top_rows(100)
+    top_rows = my_handle.get_cached_rows()
     return render_template(("index.html"), maps=top_rows)
 
 # Actually start up
 print("Starting up now")
 my_handle.start()
-
 
     
