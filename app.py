@@ -88,7 +88,7 @@ class DataHandle:
         data_map_table = (datetime.now(timezone.utc).date() + timedelta(days=2), mapset_id)
         self.DB_CURSE.execute(update_map_table, data_map_table)
         self.DB_CNX.commit()
-        #print("Updated map expiry", data_map_table)
+        print("Updated map expiry", data_map_table)
 
     def _add_to_maptable(self, mapset_id, map_name):
         update_map_table = ("INSERT INTO osumaptable "
@@ -222,6 +222,9 @@ class DataHandle:
                     # then our beatmap info getter will eventually put the corresponding map info back into the osumaptable
                     if map_table_result is not None:
                         mapset_id = mapset_id_result[0]
+
+                        # And we need to update the expiry date (since we just got a new score for it)
+                        self._update_maptable_expiry(mapset_id)
                         #print("Awesome and valid result was used for mapset_id:", mapset_id, details["map_id"])
 
 
@@ -248,6 +251,7 @@ class DataHandle:
         # Purge old scores
         old_date = last_score.ended_at.date() - timedelta(days=7)
         old_h = last_score.ended_at.hour
+        print("Trying to purge scores with", old_date, old_h)
         old_purge = ("DELETE FROM osumaintable "
                      "WHERE day <= %s AND h <= %s")
         data_purge = (old_date, old_h)
@@ -338,5 +342,4 @@ def landing_page():
 # Actually start up
 print("Starting up now")
 my_handle.start()
-
     
