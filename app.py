@@ -1,10 +1,7 @@
 import osu 
 import dotenv
-import sys
 import os
-import json
 import mysql.connector
-from mysql.connector import errorcode
 from datetime import datetime, timedelta, timezone
 import time
 import threading
@@ -13,6 +10,7 @@ from flask import Flask, render_template
 dotenv.load_dotenv()
 
 class DataHandle:
+    instance = None
     MAIN_TABLE_BLUEPRINT = (
         "CREATE TABLE `{}` ("
         "   `map_id` int(11) NOT NULL,"
@@ -37,9 +35,12 @@ class DataHandle:
         ") ENGINE=InnoDB" )
 
     def __init__(self):
-        self.C_SECRET = os.getenv("CLIENT_SECRET")
-        self.C_ID = os.getenv("CLIENT_ID")
-        self.CLIENT = osu.Client.from_credentials(self.C_ID, self.C_SECRET, "")
+        if DataHandle.instance is not None:
+            raise Exception("Cannot make another DataHandle instance.")
+        
+        c_secret = os.getenv("CLIENT_SECRET")
+        c_id = os.getenv("CLIENT_ID")
+        self.CLIENT = osu.Client.from_credentials(c_id, c_secret, "")
         self.DB_NAME = "osuplaycount"
         self.DB_USERNAME = os.getenv("DB_USERNAME")
         self.DB_HOST = os.getenv("DB_HOST")
@@ -49,6 +50,7 @@ class DataHandle:
         self.DB_CURSE = self.DB_CNX.cursor()
         self.cached_rows = []
         self.active = False
+        DataHandle.instance = self
 
         # Load the database
         #self._load_db()
@@ -100,7 +102,7 @@ class DataHandle:
         self.DB_CNX.commit()
         print("Added new entry to maptable", data_map_table)
 
-    def _update_maptable(self, map_info):
+    def _update_maptable(self, map_info: osu.Beatmap):
         # We should check if the entry already exists
         mapset_id = map_info.beatmapset_id
         check_map_table = ("SELECT * FROM osumaptable "
@@ -138,7 +140,7 @@ class DataHandle:
             map_id = my_results.pop()[0]
             map_info = None
             try:
-                map_info = self.CLIENT.get_beatmap(map_id)
+                map_info: osu.Beatmap = self.CLIENT.get_beatmap(map_id)
             except Exception as e:
                 print("We can't get the map info for this map", e, "skipping.")
                 time.sleep(2)
@@ -152,7 +154,6 @@ class DataHandle:
                 
             time.sleep(1)
         return processed_maps
-
     
     def _process_recent_scores(self, myc=None):
         # Get the curse out of the database
@@ -170,12 +171,12 @@ class DataHandle:
             print("Could not get the scores. Trying to fall back?", e)
             new_out, cursor_out = self.CLIENT.get_all_scores(osu.enums.GameModeStr.STANDARD)
             
-
         # Print the first score processed:
         the_first_score = new_out[1][0]
         print("The first score processed here:", the_first_score.id)
         
-        for score in new_out[1]:        
+        for score in new_out[1]:   
+            score: osu.SoloScore     
             details = {}
             details["map_id"] = score.beatmap_id
             details["score_id"] = score.id
@@ -225,8 +226,6 @@ class DataHandle:
 
                         # And we need to update the expiry date (since we just got a new score for it)
                         self._update_maptable_expiry(mapset_id)
-                        #print("Awesome and valid result was used for mapset_id:", mapset_id, details["map_id"])
-
 
                 # Then add the score to the table using the (maybe we have) mapset_id
                 add_score = ("INSERT INTO osumaintable "
@@ -246,6 +245,7 @@ class DataHandle:
 
         # Print the last score processed
         last_score = new_out[1][len(new_out[1])-1]
+        last_score: osu.SoloScore
         print("The last score processed here:", last_score.ended_at, last_score.id)
 
         # Purge old scores
@@ -319,7 +319,6 @@ class DataHandle:
         self.DB_CURSE.close()
         self.DB_CNX.close()
 
-
     def _cacheloop(self):
         while self.active:
             print("Updating cache...")
@@ -342,4 +341,5 @@ def landing_page():
 # Actually start up
 print("Starting up now")
 my_handle.start()
-    
+if __name__ == "__main__":
+    app.run()
