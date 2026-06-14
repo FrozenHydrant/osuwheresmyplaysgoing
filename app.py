@@ -49,7 +49,8 @@ class DataHandle:
         self.DB_PASSWORD = os.getenv("DB_PASSWORD")
         self.DB_CNX = mysql.connector.connect(host=self.DB_HOST, user=self.DB_USERNAME, database=self.DB_NAME, port=self.DB_PORT, password=self.DB_PASSWORD)
         self.DB_CURSE = self.DB_CNX.cursor()
-        self.cached_rows = []
+        self.cached_rows = [] # Top mapsets
+        self.cached_maps = [] # Top maps (difficulties individually)
         self.active = False
         DataHandle.instance = self
 
@@ -276,7 +277,7 @@ class DataHandle:
         self.DB_CURSE.execute(oldmap_purge, oldmap_data)
         self.DB_CNX.commit()
               
-    def get_top_rows(self, limit):
+    def get_top_mapsets(self, limit):
         # New connection which goes parallel with the old one and hopefully does not mess everything up
         my_getting_connection = mysql.connector.connect(host=self.DB_HOST, port=self.DB_PORT, username=self.DB_USERNAME, password=self.DB_PASSWORD, database=self.DB_NAME)
         my_getting_curse = my_getting_connection.cursor()
@@ -293,9 +294,33 @@ class DataHandle:
             print("Can't update the grouped_by_mapset view")
             print(e)
 
-        top_maps = ("SELECT groupedandlimitedbymapset.playcount,osumaptable.mapset_id,osumaptable.name FROM groupedandlimitedbymapset "
+        top_mapsets = ("SELECT groupedandlimitedbymapset.playcount,osumaptable.mapset_id,osumaptable.name FROM groupedandlimitedbymapset "
                     "INNER JOIN osumaptable ON groupedandlimitedbymapset.mapset_id=osumaptable.mapset_id "
                     "ORDER BY groupedandlimitedbymapset.playcount DESC "
+                    "LIMIT %s")
+        my_getting_curse.execute(top_mapsets, [limit])
+        my_mapsets = my_getting_curse.fetchall()
+        
+        my_getting_curse.close()
+        my_getting_connection.close()
+        return my_mapsets
+    
+    def get_top_maps(self, limit):
+        my_getting_connection = mysql.connector.connect(host=self.DB_HOST, port=self.DB_PORT, username=self.DB_USERNAME, password=self.DB_PASSWORD, database=self.DB_NAME)
+        my_getting_curse = my_getting_connection.cursor()
+        try:
+            grouped_by_map = ("CREATE OR REPLACE VIEW groupedbymap AS "
+                              "SELECT SUM(playcount) AS playcount, map_id FROM osumaintable "
+                              "GROUP BY map_id "
+                              "ORDER BY playcount DESC "
+                              "LIMIT %s")
+            my_getting_curse.execute(grouped_by_map, [limit])
+            print("View of grouped by maps created.")
+        except Exception as e:
+            print("Can't update the grouped_by_map view")
+            print(e)
+
+        top_maps = ("SELECT playcount, map_id FROM groupedbymap "
                     "LIMIT %s")
         my_getting_curse.execute(top_maps, [limit])
         my_maps = my_getting_curse.fetchall()
@@ -305,10 +330,14 @@ class DataHandle:
         return my_maps
 
     def _update_cache(self):
-        self.cached_rows = self.get_top_rows(100)
+        self.cached_rows = self.get_top_mapsets(100)
+        self.cached_maps = self.get_top_maps(100)
 
     def get_cached_rows(self):
         return self.cached_rows
+    
+    def get_cached_maps(self):
+        return self.cached_maps
  
     def start(self):
         self.active = True
@@ -348,6 +377,11 @@ my_handle = DataHandle()
 def landing_page():
     top_rows = my_handle.get_cached_rows()
     return render_template(("index.html"), maps=top_rows)
+
+@app.route('/difficulties')
+def difficulties_page():
+    top_rows = my_handle.get_cached_maps()
+    return render_template(("difficulties.html"), maps=top_rows)
 
 # Actually start up
 print("Starting up now")
