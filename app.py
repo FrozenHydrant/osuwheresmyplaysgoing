@@ -139,6 +139,7 @@ class DataHandle:
         my_results = self.DB_CURSE.fetchmany(limit)
         processed_maps = len(my_results)
         while len(my_results) > 0 and self.active: # If we terminate the program we should exit this
+            start_time = datetime.now()
             map_id = my_results.pop()[0]
             map_info = None
 
@@ -155,8 +156,12 @@ class DataHandle:
 
             # Update the maptable by adding the mapset data
             self._update_maptable(map_info)
-                
-            time.sleep(1)
+
+            # Sleep for an amount of time so we have waited at least 1 second between queries (or 60 per minute)
+            end_time = datetime.now()
+            time_elapsed = end_time - start_time
+            if time_elapsed.seconds < 1: # If it look less than a second, sleep proportional to the time we spent
+                time.sleep(max(1 - time_elapsed.microseconds/1000000, 0.1))
         return processed_maps
     
     def _process_recent_scores(self, myc=None):
@@ -348,14 +353,18 @@ class DataHandle:
 
     def _mainloop(self):
         while self.active:
+            start_time = datetime.now()
             self._process_recent_scores()
-            seconds_used = self._get_beatmap_info(30)
+            beatmaps_processed = self._get_beatmap_info(30)
+            end_time = datetime.now()
 
             # Usually, seconds_used is 60 since each info takes one second to process and we process 60
             # That's a good amount of time in between each process_recent_scores()
             # But if we did less, we should try and wait the full duration
-            print("Processing some scores which used (seconds): ", seconds_used)
-            time.sleep(max(30 - seconds_used, 2))
+            print("Processing some scores which used (# processed, time)", beatmaps_processed, (end_time-start_time))
+            # Program termination could be here, so we don't want to sleep the last time if it did
+            if self.active:
+                time.sleep(max(30 - (end_time-start_time).seconds, 2))
         self.DB_CURSE.close()
         self.DB_CNX.close()
 
