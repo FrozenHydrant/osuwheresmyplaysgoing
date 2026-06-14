@@ -40,6 +40,7 @@ class DataHandle:
         
         c_secret = os.getenv("CLIENT_SECRET")
         c_id = os.getenv("CLIENT_ID")
+        self.OSU_CLIENT_LOCK = threading.Lock()
         self.CLIENT = osu.Client.from_credentials(c_id, c_secret, "")
         self.DB_NAME = "osuplaycount"
         self.DB_USERNAME = os.getenv("DB_USERNAME")
@@ -139,12 +140,14 @@ class DataHandle:
         while len(my_results) > 0 and self.active: # If we terminate the program we should exit this
             map_id = my_results.pop()[0]
             map_info = None
-            try:
-                map_info: osu.Beatmap = self.CLIENT.get_beatmap(map_id)
-            except Exception as e:
-                print("We can't get the map info for this map", e, "skipping.")
-                time.sleep(2)
-                continue
+
+            with self.OSU_CLIENT_LOCK:
+                try:
+                    map_info: osu.Beatmap = self.CLIENT.get_beatmap(map_id)
+                except Exception as e:
+                    print("We can't get the map info for this map", e, "skipping.")
+                    time.sleep(2)
+                    continue
 
             # Update the entry in the main table
             self._update_maintable_mapset(map_info.beatmapset_id, map_id)
@@ -165,11 +168,19 @@ class DataHandle:
 
         new_out = None
         cursor_out = None
-        try:
-            new_out, cursor_out = self.CLIENT.get_all_scores(osu.enums.GameModeStr.STANDARD, myc)
-        except Exception as e:
-            print("Could not get the scores. Trying to fall back?", e)
-            new_out, cursor_out = self.CLIENT.get_all_scores(osu.enums.GameModeStr.STANDARD)
+        with self.OSU_CLIENT_LOCK:
+            try:
+                new_out, cursor_out = self.CLIENT.get_all_scores(osu.enums.GameModeStr.STANDARD, myc)
+            except Exception as e:
+                print("Could not get the scores. Trying to fall back?", e)
+                try:
+                    new_out, cursor_out = self.CLIENT.get_all_scores(osu.enums.GameModeStr.STANDARD)
+                except Exception as e2:
+                    # terrible things have happened and we cannot continue.
+
+                    print("Terrible things have happened, but we will try to continue.")
+                    time.sleep(60)
+                    return
             
         # Print the first score processed:
         the_first_score = new_out[1][0]
@@ -343,3 +354,4 @@ print("Starting up now")
 my_handle.start()
 if __name__ == "__main__":
     app.run()
+    my_handle.active = False
