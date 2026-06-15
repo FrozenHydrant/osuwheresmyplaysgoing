@@ -187,7 +187,10 @@ class DataHandle:
                     print("Terrible things have happened, but we will try to continue.")
                     time.sleep(60)
                     return
-            
+        
+        if len(new_out[1]) < 1:
+            return
+        
         # Print the first score processed:
         the_first_score = new_out[1][0]
         print("The first score processed here:", the_first_score.id)
